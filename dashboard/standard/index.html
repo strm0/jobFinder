@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // The theme is set before the page draws, so it never opens in the wrong colours: the choice
+      // saved by the header's theme button, or the computer's setting when there is none.
+      (function () {
+        var saved = null;
+        try {
+          saved = localStorage.getItem("standard.theme");
+        } catch (e) {}
+        var dark = saved === "dark" || (saved !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      })();
+    </script>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cstyle%3Epath%7Bfill:none;stroke:%231d2226;stroke-width:3;stroke-linecap:round;stroke-linejoin:round%7Dcircle%7Bfill:%231d2226%7D@media%20(prefers-color-scheme:dark)%7Bpath%7Bstroke:%23eceef0%7Dcircle%7Bfill:%23eceef0%7D%7D%3C/style%3E%3Cpath%20d='M3%2028.5H11V20.5H19V12.5'/%3E%3Ccircle%20cx='25.5'%20cy='6.5'%20r='4'/%3E%3C/svg%3E"
+    />
+    <title>jobFinder</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

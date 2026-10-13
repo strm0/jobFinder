@@ -1,0 +1,442 @@
+---
+# jobFinder demo: matching configuration
+#
+# DEMO DATA. This is the example configuration for the public copy. The candidate, Maren
+# Kjeldsen, is invented, and so are her lanes. The structure, the scoring rule and its
+# constants, the hard filter ids and the pre-filter rules are the ones the real system uses.
+#
+# Everything the code reads is in this file, and it is all free to change:
+#   edit `scoring.recommend_rules.constants`, then `python -m pipeline.score rebuild`
+#   edit `soft_signals`,                      then `python -m pipeline.signals rebuild`
+#   edit `prefilter.headline_rescue`,         then `python -m pipeline.prefilter rebuild`
+# None of those touch the stored ratings. Editing a lane id or a hard filter id does: those
+# go into the classifier's output schema, so they change `classifier_version`.
+#
+# DESIGN RULES
+#  1. No lane suppression. Every lane is displayed. lane.weight is a tie-break only.
+#     It must never remove a posting.
+#  2. hard_filters mean "she cannot hold this job", not "she would rather not".
+#     Preferences live in soft_signals.
+
+meta:
+  version: 1
+  owner: demo candidate, invented
+
+# ---------------------------------------------------------------------------
+# CANDIDATE FACTS. Documentation only; the classifier reads context/candidate_brief.md.
+# ---------------------------------------------------------------------------
+
+candidate:
+  citizenship: DK
+  work_rights: [SE, DK, EU]
+  languages_working: [sv, da, en]
+  languages_readable: [no]
+  based_in: Uppsala
+  doctorate: false
+  drivers_licence: true
+
+# ---------------------------------------------------------------------------
+# HARD FILTERS. Disqualifying only. Removing a posting requires one of these.
+# The ids are part of the classifier's output schema.
+# ---------------------------------------------------------------------------
+
+hard_filters:
+  - id: unpaid
+    rule: compensation is absent, unpaid, or described as praktik without salary
+    note: paid trainee and academy programmes are NOT excluded by this
+
+  - id: citizenship_or_clearance
+    rule: posting requires Swedish citizenship, säkerhetsprövning, säkerhetsklass, or SUA
+    match_terms_sv: [svenskt medborgarskap, säkerhetsprövning, säkerhetsklass, registerkontroll]
+    match_terms_en: [security clearance, Swedish citizenship required]
+    # READ BY pipeline/score.py. The model's hit on this filter stands only when the ad text
+    # contains one of these terms, matched as a substring so inflections and compounds
+    # count. Without that check the model reads a bar into a public-sector employer, a
+    # background check or "EU-medborgarskap", none of which bars a citizen of another EU
+    # country. Do not add bare words like medborgarskap or citizenship; that is the mistake
+    # this corrects. Editing these lists is free: they do not reach the classifier, only
+    # this filter's id does.
+
+  - id: doctorate_required
+    rule: completed doctorate is a stated requirement
+    applies_to_tracks: [industry]
+    note: does NOT apply to the doctoral track
+
+  - id: language_not_held
+    rule: working language is required and is not sv, da, en or no
+    examples: [German, French, Dutch, Spanish as required working language]
+
+  - id: location_out_of_scope
+    rule: workplace is outside Sweden AND the role is not fully remote
+    note: inside Sweden, place is a preference and never a bar
+
+  - id: licence_not_held
+    rule: posting requires a professional licence or protected credential she does not hold
+    examples: [legitimation, auktorisation]
+
+# ---------------------------------------------------------------------------
+# SOFT SIGNALS. Adjust the score. Never remove.
+#
+# WHO DETECTS THESE. The entries carrying term lists are matched locally with regular
+# expressions by pipeline/signals.py: free, deterministic, rebuildable, and paying a model
+# per ad to do what grep does would be the largest avoidable line in the bill. The rest are
+# judgements about what the role actually is and go to the model. Those are delegated by
+# name in signals.py, so nothing is dropped silently: salary_stated_above_floor,
+# below_floor_salary, and the process half of slow_process.
+# `signals.py` refuses to run if a signal is neither matched nor listed as delegated.
+# ---------------------------------------------------------------------------
+
+soft_signals:
+
+  positive:
+    - id: builds_the_data_model
+      weight: 10
+      terms_en: [data pipeline, data pipelines, ETL, dbt, analytics engineering, data model, data models]
+      terms_sv: [datamodell, datamodeller, dataflöden, datalager]
+      note: owning the model and the pipeline, not only reading the report
+
+    - id: public_interest_domain
+      weight: 9
+      terms_en: [energy, climate, sustainability, open data, public transport, civic]
+      terms_sv: [energi, klimat, hållbarhet, öppna data, kollektivtrafik, samhällsnytta]
+
+    - id: danish_used
+      weight: 8
+      note: Danish alongside Swedish is rare in Sweden and she has both
+      terms: [danska, danish, dansk, svenska och danska]
+
+    - id: works_with_end_users
+      weight: 6
+      terms_en: [user research, usability testing, contextual inquiry, prototyping, workshops]
+      terms_sv: [användarstudier, användbarhetstester, prototyper, workshop]
+
+    - id: remote_or_flexible_place
+      weight: 5
+      terms_en: [remote, remote-friendly, hybrid]
+      terms_sv: [distans, på distans, distansarbete, hybrid]
+      note: she lives in Uppsala and does not want a daily commute to Stockholm
+
+    - id: mentoring_expected
+      weight: 4
+      terms_en: [mentor, mentoring]
+      terms_sv: [mentor, handleda, handledning]
+      note: she wants to bring newer colleagues on
+
+    - id: small_team
+      weight: 3
+      terms_en: [small team, small company]
+      terms_sv: [litet team, liten grupp]
+
+    - id: open_source
+      weight: 3
+      terms: [open source, öppen källkod]
+
+    - id: salary_stated_above_floor
+      weight: 5
+      rule: stated salary or band at or above 47000 SEK per month
+      note: NOT a filter. A strong role below it still surfaces.
+
+  negative:
+    - id: on_call_or_shifts
+      weight: -14
+      terms_en: [on-call, on call, shift work, shifts]
+      terms_sv: [jour, beredskap, skiftarbete, skift]
+      note: her clearest no. Two small children and no wish to carry a pager.
+
+    - id: hired_out_to_clients
+      weight: -10
+      terms_en: [placed with customers, client site, at the client]
+      terms_sv: [ute hos kund, uppdrag hos kund, konsultuppdrag]
+      note: she wants to stay with one product, not be placed at a new customer each year
+
+    - id: frequent_travel
+      weight: -8
+      terms_en: [travel]
+      terms_sv: [resor i tjänsten, resdagar]
+
+    - id: staff_responsibility_required
+      weight: -6
+      terms_en: [line management, people management]
+      terms_sv: [personalansvar, budgetansvar]
+      note: she has led work, never people. Score, do not filter.
+
+    - id: below_floor_salary
+      weight: -6
+      rule: stated salary below 41000 SEK per month
+      note: score only, never filter
+
+    - id: slow_process
+      weight: -5
+      rule: application deadline more than 6 weeks out, or multi-stage public sector process
+
+# ---------------------------------------------------------------------------
+# SCORING
+#
+# The classifier returns TWO ratings per ad, not one, and never a final score:
+#
+#   want   0-10, how much she would want the job, ignoring whether she gets it
+#   reach  0-10, how likely she is to actually be hired
+#
+# `recommend` is derived from those plus the soft signals by pipeline/score.py, and it is
+# what the dashboard sorts on. The two ratings only surface when a ranking looks wrong, and
+# then they say why: a job at the top she would never take is a want problem, one she has no
+# chance at is a reach problem, and the fixes are different.
+#
+# Why the model does not just return the blend. Its reading of the ad costs money to
+# produce; combining two numbers does not. Store the blend only, and every change to how
+# they are weighted is a paid reclassify over the whole store. Store both, and re-weighting
+# is arithmetic over data already on disk.
+# ---------------------------------------------------------------------------
+
+scoring:
+  primary: recommend
+  inputs: [want, reach, soft_signals, lane_weight]
+  rule: >
+    Weights sort, they never filter. A hard filter hit is disqualifying and sends the
+    posting to the rejected view; nothing else removes a posting from anything.
+
+  # DO NOT AVERAGE want AND reach. Averaging is the obvious thing and it is wrong.
+  #
+  #   Staff Data Visualisation Engineer, wanted and out of reach   want 9, reach 1   mean 5.0
+  #   Retail sales assistant, easy to get and not wanted           want 0, reach 8   mean 4.0
+  #
+  # A mean puts them side by side. The first is a job to apply for anyway; the second is
+  # never a recommendation.
+  recommend_rules:
+    shape: want-dominant, with reach as a discount. Multiplicative, not additive.
+    must_hold:
+      - want 0 gives recommend 0, whatever reach is.
+      - >-
+        ANY ad with want 6 or more and reach 2 or less must outrank ANY ad with want 2 or
+        less and reach 7 or more, whatever the signal totals are. pipeline/score.py asserts
+        it over the whole 0-10 by 0-10 grid rather than over the rows that happen to be on
+        disk.
+      - reach never raises a score above what want allows. It only discounts.
+      - a hard filter hit means the posting is in the rejected view, not merely low.
+
+    # -------------------------------------------------------------------------
+    # THE CONSTANTS. pipeline/score.py reads these four values and nothing else.
+    # Change them here, run `python -m pipeline.score rebuild`, and the whole store is
+    # reordered for free. `python -m pipeline.score preview --floor 0.3 --slope 0.07`
+    # reorders in memory and writes nothing.
+    #
+    #   recommend = want
+    #             * (reach_floor + reach_slope * reach)
+    #             * (1 + clamp(signal_total / signal_divisor, -band, +band))
+    # -------------------------------------------------------------------------
+    constants:
+      reach_floor: 0.5      # the multiplier at reach 0. A dream job she will not get
+                            # keeps half its want, so it stays visible and she decides.
+      reach_slope: 0.05     # reach 10 reaches exactly 1.0, so reach only ever discounts.
+      signal_divisor: 100   # soft signal totals run roughly -30 to +30.
+      signal_band: 0.15     # hard cap on what the term lists may move a score, either way.
+
+    superseded_starting_point: >
+      The first draft said `recommend = want * (0.3 + 0.07 * reach)`. It fails must_hold
+      rule two: a want 6 reach 0 ad scores 1.80 and a want 2 reach 10 ad scores 2.00, so the
+      job she barely wants wins. With a 0.5 floor the same pair is 3.00 against 2.00 and the
+      rule can be written as a check that fails the build. Try it: put 0.3 and 0.07 in
+      above and run `python -m pipeline.score verify`.
+
+    tie_breaks: >
+      Equal recommend is broken by the highest lane weight among the ad's matched lanes,
+      ignoring per-lane fit, then by publication date, newest first. Lane weight only
+      ever breaks a tie. It never scales the score, because a lane is a label on the
+      card and not a ranking.
+
+# ---------------------------------------------------------------------------
+# LANES
+# weight = a tie-break within `recommend`. Never a filter.
+# The classifier reads the lane ids only; the descriptions it works from are written by
+# hand in pipeline/prompts/classify_v1.md, and classify.py checks every id is there.
+# `short` is the card-sized label the dashboard shows.
+# ---------------------------------------------------------------------------
+
+lanes:
+
+  - id: L1_data_analytics
+    name: Data and analytics engineering
+    short: Data and analytics
+    weight: 9
+    titles: [Data Engineer, Analytics Engineer, BI-utvecklare, Dataingenjör, Data Analyst]
+
+  - id: L2_automation_integration
+    name: Automation and integration
+    short: Automation
+    weight: 6
+    titles: [Integrationsutvecklare, Automation Engineer, Systemförvaltare, AI-utvecklare]
+
+  - id: L3_web_development
+    name: Web and application development
+    short: Web development
+    weight: 5
+    titles: [Fullstackutvecklare, Frontend Developer, Systemutvecklare, Webbutvecklare]
+
+  - id: L4_ux_design
+    name: UX and interaction design
+    short: UX design
+    weight: 8
+    titles: [UX-designer, Interaktionsdesigner, Tjänstedesigner, Product Designer, UX Researcher]
+
+  - id: L5_academic_staff
+    name: University teaching and research support
+    short: Academic staff
+    weight: 4
+    titles: [Universitetsadjunkt, Forskningsingenjör, Forskningsassistent]
+
+  - id: L6_public_sector_digital
+    name: Public sector digitalisation
+    short: Public sector digital
+    weight: 10
+    titles: [Digitaliseringsutvecklare, Verksamhetsutvecklare digitalisering, GIS-utvecklare, E-tjänsteutvecklare]
+
+  - id: L7_data_visualisation
+    name: Data visualisation and civic tech
+    short: Data visualisation
+    weight: 9
+    titles: [Data Visualisation Engineer, Datajournalist, Information Designer]
+
+# ---------------------------------------------------------------------------
+# THE PRE-FILTER. Runs before the model, costs nothing.
+# ---------------------------------------------------------------------------
+
+prefilter:
+
+  skip_by_occupation_group:
+    list: context/occupation_groups.md
+    note: >
+      The verdict on every occupation group. 96 of 159 groups are skipped. occupation_group
+      is a taxonomy field filled on every ad, so this is a lookup and not a text match: it
+      cannot misfire on wording. That file is authoritative; the list is not duplicated here.
+    unknown_groups: >
+      A group not present in that file defaults to KEEP, never skip. Failing open costs a
+      fraction of a cent per ad; failing closed loses ads silently.
+
+  # An ad in a skipped group is still sent to the model if its headline names one of the
+  # lanes. Recall rule, not a precision rule: a wrongly rescued ad costs a fraction of a
+  # cent and the model rejects it, so the terms are deliberately generous and the veto is
+  # deliberately narrow. Matched case-insensitively against the headline only, as Python
+  # regular expressions.
+  headline_rescue:
+    terms:
+      - '\bAI\b'
+      - '\bAI-'
+      - 'artificiell intelligens'
+      - 'artificial intelligence'
+      - 'machine learning'
+      - 'maskininl(ä|a)rning'
+      - 'mjukvaru'
+      - '\bsoftware\b'
+      - 'systemutveckl'
+      - 'webbutveckl'
+      - 'apputveckl'
+      - 'programmerare'
+      - 'programmering'
+      - '\bdeveloper\b'
+      - '\butvecklare\b'
+      - 'fullstack'
+      - 'full-stack'
+      - 'backend'
+      - 'frontend'
+      - '\bdevops\b'
+      - 'data scien'
+      - 'data engineer'
+      - 'dataingenj'
+      - 'analytics engineer'
+      - '\bBI\b'
+      - 'visualisering'
+      - '\bUX\b'
+      - 'interaktionsdesign'
+      - 'interaction design'
+      - 'product designer'
+      - 'systemf(ö|o)rvalt'
+      - 'integration engineer'
+      - 'integrationsutveckl'
+      # Academic. These are literal L5 titles, and without them an amanuens post filed
+      # under Elevassistenter never reaches the model.
+      - 'amanuens'
+      - 'forskningsassistent'
+      - 'forskningsingenj'
+
+    # These override any rescue term. Kept narrow on purpose: only contexts where the
+    # rescue word appears but the role is unambiguously not a lane, such as a seller of AI
+    # products or a programming tutor.
+    veto:
+      - 'l(ä|a)rare'
+      - 'pedagog'
+      - 'l(ä|a)xhj(ä|a)lp'
+      - 'privatl(ä|a)rare'
+      - 'instrukt(ö|o)r'
+      - 'studiehandled'
+      - '\butbildare\b'
+      - 'f(ö|o)rskol'
+      - '\bs(ä|a)ljare\b'
+      - '\bs(ä|a)ljande\b'
+      - 'provision'
+      - 'm(ö|o)tesbokare'
+
+    known_limit: >
+      Headlines only. An ad whose headline gives nothing away, sitting in a skipped group,
+      is still lost. Reading descriptions is the cost the pre-filter exists to avoid.
+
+# ---------------------------------------------------------------------------
+# ADS FROM OTHER JOB SITES, THROUGH JOBAD LINKS
+# Read by pipeline/links.py and pipeline/classify.py. Nothing here reaches the
+# classifier's prompt, so an edit never changes classifier_version.
+# ---------------------------------------------------------------------------
+
+links:
+
+  # The gate. While false, a run fetches and reads these ads for free and the classify
+  # step leaves them alone, so nothing is spent on them.
+  classify: true
+
+  # An ad is let in only if Links first shows it within this many days of its publication.
+  admit_days: 60
+
+  # A site is flagged when its reader found text on fewer than this share of the pages it
+  # tried in one run, over at least `flag_min` pages.
+  flag_below: 0.5
+  flag_min: 3
+
+# ---------------------------------------------------------------------------
+# DASHBOARD
+# The code reads `views[].page_size` and `location_switch.stockholm_regions`. The sort
+# orders are written here as documentation; they are SQL in dashboard/queries.py.
+# ---------------------------------------------------------------------------
+
+dashboard:
+
+  views:
+    - id: top_picks
+      source: postings where track == industry
+      sort: recommend desc, then published_at desc
+      page_size: 10
+      default: true
+    - id: by_lane
+      source: postings where track == industry, one lane at a time
+      sort: recommend desc, then published_at desc
+      page_size: 10
+    - id: phd
+      source: postings where track == phd
+      sort: recommend desc, then application_deadline asc
+      page_size: 10
+    - id: rejected
+      source: open postings the model read and put in no lane
+      page_size: 10
+    - id: applied
+      source: every posting marked applied
+      page_size: 10
+    - id: dismissed
+      source: every posting removed since the last run started
+      page_size: 10
+
+  location_switch:
+    positions: [all, stockholm, outside]
+    stockholm_regions:
+      - id: CifL_Rzy_Mku
+        name: Stockholms län
+    rules: >
+      A card is wherever any of its cities is, the reposts folded into it included, so a
+      job posted in Stockholm and Malmö shows under both. An ad that gives no place shows
+      under both, so a missing field never hides a job. An ad abroad counts as outside.

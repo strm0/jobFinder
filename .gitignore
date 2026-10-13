@@ -1,0 +1,35 @@
+# macOS
+.DS_Store
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets. The classifier reads ANTHROPIC_API_KEY from the environment and never from a
+# file; this covers the habit anyway.
+.env
+
+# The store is generated, not source. `python -m pipeline.seed` builds it from sample/.
+# The -wal and -shm sidecars are not covered by *.db, so they are matched explicitly.
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Applications are local only. The dashboard's "Write brief" button creates a folder per
+# job here, and the CV and letter drafts are written into it. The template is tracked.
+applications/*
+!applications/_TEMPLATE/
+
+# Generated reports, from `tools/top.py --out`.
+reports/
+sample.md
+
+# The dashboard page's installed packages and its build output. Regenerate with
+# `cd dashboard/standard && npm install && npm run build`.
+dashboard/standard/node_modules/
+dashboard/standard/dist/

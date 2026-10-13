@@ -1,0 +1,1427 @@
+/* The standard design: a conventional job board, at the polish of Airbnb and LinkedIn Jobs.
+   Roles, not decoration: one blue for the primary action, selection and focus; one green for New
+   and nothing else. */
+
+:root {
+  color-scheme: light;
+  --page: #f3f2ef;
+  --surface: #ffffff;
+  --surface-hover: #f7f6f4;
+  --ink: #1d2226;
+  --ink-2: #5e6166;
+  --ink-3: #8a8d91;
+  --line: #e3e2de;
+  --line-strong: #cfcdc8;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #e8effd;
+  --on-accent: #ffffff;
+  --new: #0b7a53;
+  --new-soft: #e3f3ec;
+  --warn: #8a4b08;
+  --warn-soft: #fbf0dc;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --shadow-hover: 0 6px 18px rgb(29 34 38 / 0.1), 0 1px 3px rgb(29 34 38 / 0.06);
+  --shadow-panel: 0 12px 32px rgb(29 34 38 / 0.08), 0 1px 3px rgb(29 34 38 / 0.05);
+  --shadow-pressed: 0 1px 3px rgb(29 34 38 / 0.12);
+  /* The same shadow as a filter, whose blur spreads about twice as far as a box-shadow's. */
+  --shadow-pressed-drop: 0 1px 1px rgb(29 34 38 / 0.12);
+  --radius-card: 12px;
+  --radius-inner: 10px;
+  --radius-tile: 8px;
+  --gutter: clamp(16px, 2.6vw, 48px);
+  --header-h: 120px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --font: "Newsreader Variable", ui-serif, Georgia, serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Dark swaps the neutrals and lightens the voices, and keeps every role. index.html sets data-theme
+   before the page draws: the choice saved by the header's theme button, or the computer's setting
+   when there is none. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #141618;
+  --surface: #1e2124;
+  --surface-hover: #25292d;
+  --ink: #eceef0;
+  --ink-2: #a9adb3;
+  --ink-3: #7d8288;
+  --line: #2f3338;
+  --line-strong: #454b52;
+  --accent: #7aa7ff;
+  --accent-hover: #9dbeff;
+  --accent-soft: rgb(122 167 255 / 0.14);
+  --on-accent: #0d1b33;
+  --new: #52c794;
+  --new-soft: rgb(82 199 148 / 0.14);
+  --warn: #f0b35c;
+  --warn-soft: rgb(240 179 92 / 0.12);
+  --danger: #ff8a7a;
+  --danger-soft: rgb(255 138 122 / 0.12);
+  --shadow-hover: 0 8px 22px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-panel: 0 14px 36px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-pressed: 0 1px 3px rgb(0 0 0 / 0.5);
+  --shadow-pressed-drop: 0 1px 1px rgb(0 0 0 / 0.5);
+}
+
+/* Base, and the parts of the browser the page did not draw. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  caret-color: var(--accent);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+h1,
+h2,
+h3,
+p,
+ol,
+ul,
+dl,
+dd {
+  margin: 0;
+}
+
+ol,
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+svg.lucide {
+  flex: none;
+  stroke-width: 1.75;
+}
+
+.num,
+.score-value,
+.chip-count,
+.segment-count,
+.lane-count,
+.lane-new,
+.run strong,
+.more-count,
+.why-value,
+.card-rank {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip {
+  position: absolute;
+  top: -100px;
+  left: var(--gutter);
+  z-index: 100;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip:focus {
+  top: 12px;
+}
+
+.shell {
+  padding-inline: var(--gutter);
+}
+
+/* Header: the logo and name with the last run and the list's count under them, then a row with
+   the views and the filters for the list below. */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.header-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 16px;
+  padding-block: 18px 14px;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+
+.logo {
+  flex: none;
+}
+
+/* The theme button ends the logo's row. It reaches 8px past the gutter so its icon lines up over
+   the edge of the place slider, and 2px above and below so the row keeps the logo's height. */
+.theme-button {
+  align-self: center;
+  margin: -2px -8px -2px 0;
+}
+
+/* Flipping the theme changes every colour in one frame; ThemeButton.tsx sets this for that frame. */
+[data-theme-switching] *,
+[data-theme-switching] *::before,
+[data-theme-switching] *::after {
+  transition: none !important;
+}
+
+.run {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+
+.run strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.run-sep {
+  color: var(--ink-3);
+}
+
+/* The count of the list below, worded for the view. It is a live region, so a change is read out. */
+.run-match {
+  display: inline-flex;
+  gap: 0 8px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+  padding-block: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.toolbar-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease);
+}
+
+.chip:hover {
+  border-color: var(--ink);
+}
+
+.new-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--new);
+}
+
+.chip-count {
+  color: var(--ink-2);
+}
+
+.chip-new[aria-pressed="true"] {
+  border-color: var(--new);
+  background: var(--new-soft);
+  color: var(--new);
+}
+
+.chip-new[aria-pressed="true"] .chip-count {
+  color: var(--new);
+}
+
+/* Views and places share one control: a page-grey track and a white thumb that slides to the
+   chosen option. Segmented.tsx measures the option and the track and sets --thumb-x, --thumb-w
+   and --track-w. */
+.segmented {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  padding: 3px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--page);
+  scrollbar-width: none;
+}
+
+.segmented::-webkit-scrollbar {
+  display: none;
+}
+
+/* The thumb spans the track, and a clip-path cuts the chosen option's pill out of it: a hairline
+   pill (::before) 1px outside the option, and the white pill (::after) on the option itself. The
+   glide animates the cut, so the pill keeps round ends at every frame and nothing is laid out
+   again; animating width would lay the thumb out again on every frame. The shadow is a filter on
+   the thumb, so it follows the cut shape. */
+.segmented-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: var(--track-w, 100%);
+  filter: drop-shadow(var(--shadow-pressed-drop));
+  pointer-events: none;
+}
+
+.segmented-thumb::before,
+.segmented-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.segmented-thumb::before {
+  top: -1px;
+  bottom: -1px;
+  background: var(--line);
+  clip-path: inset(0 calc(100% - var(--thumb-x, 0px) - var(--thumb-w, 0px) - 1px) 0 calc(var(--thumb-x, 0px) - 1px) round 999px);
+}
+
+.segmented-thumb::after {
+  background: var(--surface);
+  clip-path: inset(0 calc(100% - var(--thumb-x, 0px) - var(--thumb-w, 0px)) 0 var(--thumb-x, 0px) round 999px);
+}
+
+.segmented[data-ready] .segmented-thumb::before,
+.segmented[data-ready] .segmented-thumb::after {
+  transition: clip-path 240ms var(--ease);
+}
+
+/* The views are two sliders, and the one without the current view shows no thumb. */
+.segmented[data-empty] .segmented-thumb {
+  visibility: hidden;
+}
+
+.segment {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 150ms var(--ease);
+}
+
+.segment:hover,
+.segment[data-chosen] {
+  color: var(--ink);
+}
+
+/* Inside the scrolling track an outside outline would be clipped. */
+.segment:focus-visible {
+  outline-offset: -2px;
+}
+
+.segment-count {
+  color: var(--ink-2);
+}
+
+/* Seven lanes do not fit a laptop row, so the row scrolls the way Airbnb's category bar does:
+   a fade and an arrow on whichever side has more. */
+.lane-bar {
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.lane-row {
+  display: flex;
+  gap: 8px;
+  padding-block: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lane-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* Under each arrow the chips are fully hidden, then fade in, so no half-word sits beside it. */
+.lane-bar[data-right] .lane-row {
+  mask-image: linear-gradient(to left, transparent 0, transparent 72px, rgb(0 0 0 / 0.12) 92px, #000 140px);
+}
+
+.lane-bar[data-left] .lane-row {
+  mask-image: linear-gradient(to right, transparent 0, transparent 72px, rgb(0 0 0 / 0.12) 92px, #000 140px);
+}
+
+.lane-bar[data-left][data-right] .lane-row {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    transparent 72px,
+    rgb(0 0 0 / 0.12) 92px,
+    #000 140px,
+    #000 calc(100% - 140px),
+    rgb(0 0 0 / 0.12) calc(100% - 92px),
+    transparent calc(100% - 72px)
+  );
+}
+
+.lane-scroll {
+  position: absolute;
+  top: 2px;
+  z-index: 1;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-pressed);
+}
+
+.lane-scroll-left {
+  left: var(--gutter);
+}
+
+.lane-scroll-right {
+  right: var(--gutter);
+}
+
+.lane-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 26rem;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease);
+}
+
+.lane-chip:hover {
+  border-color: var(--ink);
+}
+
+.lane-code {
+  font-weight: 700;
+}
+
+.lane-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lane-count {
+  color: var(--ink-2);
+}
+
+.lane-new {
+  color: var(--new);
+  font-weight: 600;
+}
+
+.lane-chip[aria-pressed="true"] {
+  max-width: none;
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.lane-chip[aria-pressed="true"] .lane-count,
+.lane-chip[aria-pressed="true"] .lane-new {
+  color: var(--surface);
+}
+
+/* The workspace: the grid of cards, and the panel beside it when a job is open. */
+
+.main {
+  padding-block: 24px 64px;
+}
+
+.main:focus {
+  outline: none;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.workspace[data-open] {
+  grid-template-columns: minmax(0, 1fr) clamp(380px, 34vw, 560px);
+}
+
+.results {
+  min-width: 0;
+  transition: opacity 150ms var(--ease);
+}
+
+.results[aria-busy="true"] {
+  opacity: 0.6;
+}
+
+/* Cards stretch to fill the row, with a column added when there is room: about 4 across on a
+   laptop, 8 on a screen 2,560 pixels wide. Each row is as tall as its longest card; a fixed
+   upright 7 by 10 shape would leave a gap under most summaries. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 20px;
+}
+
+.card {
+  --pad: 18px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--pad) var(--pad) 16px;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  transition: box-shadow 180ms var(--ease);
+}
+
+.card:hover {
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-hover);
+}
+
+.card[data-selected] {
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-hover);
+}
+
+.card:has(.card-open:focus-visible) {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+/* The head band: the score on the left and the x on the right, in one row bled to the card's edges
+   behind a hairline. It is as tall as a 36px button whether or not it holds one, so a band in
+   Applied, which has no x, keeps the height of every other. */
+.card-head {
+  --head-y: 12px;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: calc(36px + 2 * var(--head-y) + 1px);
+  margin: calc(-1 * var(--pad)) calc(-1 * var(--pad)) 0;
+  padding: var(--head-y) 12px var(--head-y) var(--pad);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.card-score {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.score-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.015em;
+}
+
+.card-score .badge {
+  align-self: center;
+  margin-left: 4px;
+}
+
+.score-label {
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--page);
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-new {
+  background: var(--new-soft);
+  color: var(--new);
+}
+
+.badge-closed {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  transition: background-color 150ms var(--ease), color 150ms var(--ease);
+}
+
+/* The page's warm grey, not the surface hover, so the hover shows on a white card. */
+.icon-btn:hover:not(:disabled) {
+  background: var(--page);
+  color: var(--ink);
+}
+
+/* Above the title button's hit area, which covers the whole card. */
+.star,
+.card-remove,
+.card-restore {
+  position: relative;
+  z-index: 2;
+}
+
+/* The star ends the footer. Its 36px target overhangs the footer's line above and below, so the
+   footer keeps a lane tag's height, and its glyph ends on the card's text edge. */
+.card-meta .star {
+  margin: -6px -9px -6px -4px;
+}
+
+/* Starred is a state, not one of blue's three roles, so it fills in ink. */
+.star[aria-pressed="true"] {
+  color: var(--ink);
+}
+
+.star[aria-pressed="true"] svg,
+.btn[aria-pressed="true"] svg {
+  fill: currentColor;
+}
+
+.card-title {
+  margin-top: 16px;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+.card-open {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-weight: inherit;
+  text-align: left;
+}
+
+.card-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.card-open:focus-visible {
+  outline: none;
+}
+
+.card-employer {
+  margin-top: 6px;
+  overflow: hidden;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.card-place {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.card-place span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The job site an ad came from, under its place and in its voice. */
+.card-source {
+  margin-top: 0;
+}
+
+.badge-link {
+  gap: 4px;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.badge-link:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.card-lanes {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lane-tag {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--page);
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lane-tag-code {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* Summaries run two to five lines, and six is the most a card shows. */
+.card-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  flex: none;
+  margin-top: 12px;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+/* At least 12px between the text and the footer's hairline, under the place when a job has no
+   summary. A taller card in the same row adds the rest above the footer. */
+.card-summary,
+.card-place:has(+ .card-foot) {
+  margin-bottom: 12px;
+}
+
+/* The footer sits on the card's floor behind a hairline, so the space above it reads as a
+   pause between two blocks rather than a hole. */
+.card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+/* As tall as a lane tag, so a card with no lane keeps its footer's hairline level with the row. */
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+  margin-left: auto;
+}
+
+.card-brief {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card[data-closed] .card-title,
+.card[data-closed] .score-value {
+  color: var(--ink-2);
+}
+
+/* A wider card steps up its type, so the wide cards of a laptop screen with no panel open do not
+   read as sparse. */
+.grid > li {
+  container: card / inline-size;
+}
+
+@container card (min-width: 280px) {
+  .card {
+    --pad: 20px;
+  }
+
+  .card-title {
+    font-size: 1.1875rem;
+  }
+
+  .card-employer {
+    font-size: 1rem;
+  }
+
+  .card-summary {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+}
+
+/* The widest cards, as on a laptop screen with no panel open: a step up in every group, and more
+   room between them. */
+@container card (min-width: 340px) {
+  .card {
+    --pad: 22px;
+    padding-bottom: 18px;
+  }
+
+  .card-head {
+    --head-y: 14px;
+  }
+
+  .score-value {
+    font-size: 2rem;
+  }
+
+  .card-title {
+    margin-top: 20px;
+    font-size: 1.3125rem;
+    line-height: 1.28;
+  }
+
+  .card-employer {
+    margin-top: 8px;
+    font-size: 1.0625rem;
+  }
+
+  .card-place {
+    margin-top: 4px;
+    font-size: 0.9375rem;
+  }
+
+  .card-summary {
+    margin-top: 16px;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+}
+
+/* The panel: the chosen job beside the grid. */
+
+.panel {
+  position: sticky;
+  top: calc(var(--header-h) + 24px);
+  max-height: calc(100dvh - var(--header-h) - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-panel);
+  scrollbar-width: thin;
+}
+
+.panel-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  padding: 10px 10px 0 16px;
+  background: var(--surface);
+}
+
+.panel-bar .panel-back {
+  display: none;
+}
+
+.panel-close {
+  margin-left: auto;
+}
+
+.panel-body {
+  padding: 0 28px 32px;
+}
+
+.panel-employer-name {
+  font-weight: 600;
+}
+
+.panel-place {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.panel-title {
+  margin-top: 18px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.panel-title:focus {
+  outline: none;
+}
+
+.panel-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.panel-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px 20px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius-inner);
+  background: var(--page);
+}
+
+.panel-facts dt {
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.panel-facts dd {
+  font-weight: 600;
+}
+
+.panel-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.panel-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+}
+
+.btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+.btn[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.btn-small {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+}
+
+.btn-quiet {
+  padding-inline: 8px 12px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.panel-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.brief-note {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-inner);
+  background: var(--accent-soft);
+  font-size: 0.875rem;
+}
+
+.brief-note[data-tone="error"] {
+  background: var(--danger-soft);
+}
+
+.copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.copy code {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.panel-section h3 {
+  margin-bottom: 12px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.why {
+  display: grid;
+  gap: 18px;
+}
+
+.why-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.why-label {
+  font-weight: 600;
+}
+
+.why-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.why-of {
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.why-text {
+  max-width: 70ch;
+  margin-top: 4px;
+  color: var(--ink-2);
+}
+
+.panel-summary {
+  max-width: 70ch;
+}
+
+.panel-lanes {
+  display: grid;
+  gap: 10px;
+}
+
+.panel-lanes li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.panel-lane-code {
+  min-width: 2.2em;
+  font-weight: 700;
+}
+
+.fit {
+  margin-left: auto;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* Above Removed's grid, what happens to what it holds. */
+.list-note {
+  max-width: 70ch;
+  margin-bottom: 16px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+/* The end of the list: a button adds the next ten below, and is how to try again after an error. */
+
+.more {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 32px;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.more-error {
+  max-width: 70ch;
+  color: var(--danger);
+}
+
+/* Notices, empty lists and loading. */
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: var(--radius-inner);
+  background: var(--warn-soft);
+}
+
+.notice > svg {
+  margin-top: 2px;
+  color: var(--warn);
+}
+
+.notice[data-tone="error"] {
+  background: var(--danger-soft);
+}
+
+.notice[data-tone="error"] > svg {
+  color: var(--danger);
+}
+
+.notice-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notice-title {
+  font-weight: 600;
+}
+
+.notice-text {
+  color: var(--ink-2);
+  white-space: pre-line;
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 72px 24px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  text-align: center;
+}
+
+.empty-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: var(--page);
+  color: var(--ink-2);
+}
+
+.empty-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.empty-text {
+  max-width: 52ch;
+  color: var(--ink-2);
+}
+
+.empty .btn {
+  margin-top: 8px;
+}
+
+.empty-text code {
+  white-space: nowrap;
+}
+
+.skeleton-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  /* About a real card's height, so the grid does not jump when the jobs arrive. */
+  min-height: 340px;
+  padding: 18px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.bone {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--page);
+}
+
+.bone-title {
+  width: 88%;
+  height: 16px;
+}
+
+.bone-short {
+  width: 55%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bone {
+    animation: bone-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes bone-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Motion: the signature moment. Cards glide to their new places as the grid narrows, and the
+   panel slides in from the right. Everything else is a colour or shadow change. */
+
+::view-transition-group(*) {
+  animation-duration: 220ms;
+  animation-timing-function: var(--ease);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 140ms;
+}
+
+/* A card more than a screen away sits out the glide; App.tsx marks it for that one transition. */
+.card[data-far] {
+  view-transition-name: none !important;
+}
+
+::view-transition-new(job-panel):only-child {
+  animation: panel-in 220ms var(--ease);
+}
+
+::view-transition-old(job-panel):only-child {
+  animation: panel-out 160ms ease-in forwards;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes panel-out {
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+
+  .segmented[data-ready] .segmented-thumb::before,
+  .segmented[data-ready] .segmented-thumb::after {
+    transition: none;
+  }
+}
+
+/* Narrow screens: one column, and the panel takes the whole screen. */
+
+@media (max-width: 760px) {
+  .wordmark {
+    font-size: 1.5rem;
+  }
+
+  /* The views take the whole row, and their track scrolls when five options do not fit. */
+  .toolbar-views {
+    width: 100%;
+  }
+
+  .workspace[data-open] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .panel-bar .panel-back {
+    display: inline-flex;
+  }
+
+  .lane-scroll {
+    display: none;
+  }
+
+  .panel-close {
+    display: none;
+  }
+
+  .panel-body {
+    padding-inline: 20px;
+  }
+
+  .grid {
+    gap: 12px;
+  }
+}
